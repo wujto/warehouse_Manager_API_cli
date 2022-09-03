@@ -1,14 +1,117 @@
 from time import sleep
-from urllib.error import URLError
 import requests
 import os
 
-global NEXT_PAGE
-global PREV_PAGE 
-global URL
-URL = None
-NEXT_PAGE = None
-PREV_PAGE = None
+HELP = """METHODS: get, post, put, delete 
+FIRST PARAM: users, products, localizations, confirmations, categories
+<id> for detail, put or delete methods
+--page <num> for get method without <id>
+--filters <key> <value> ... for get method  without <id>
+    FILTER PARAMS:
+    -for users (first_name, last_name)
+    -for localizations (name, details)
+    -for other (name)
+EXAMPLE:
+    get products --filter name Szlifierka
+
+OTHER COMMANDS:
+    q - quit
+    cls - clear screan
+"""
+
+def experimental_menu(token):
+    # <method(get, post, put, delete)> <users, products, localizations, confirmations> [id for details] | --page <value> | --filter <key(first_name, last_name for users) (name, details for localizations) (name for others)> <value> 
+    # "http://localhost:8000/api/products/?limit=10&offset=10"    PAGINATION
+    # http://localhost:8000/api/products?name=Szlifiera         FILTERING
+    inp = input("> ")
+    if inp.lower() == 'q':
+        print("See you later.")
+        exit()
+    elif inp.lower() == 'cls':
+        os.system('cls')
+        return
+    elif inp.lower() == 'help':
+        print('')
+        print(HELP)
+        return
+    
+    is_page = inp.find('--page')        # Check page flag exist
+    is_filter = inp.find('--filters')   # Check filters flag exist
+    inp = inp.split(' ')
+    meth = inp.pop(0)
+    sub_link = inp.pop(0)
+
+    url = f'http://localhost:8000/api/{sub_link}/'
+
+    # Set id for detail view
+    if is_filter < 0 and is_page < 0 and len(inp):
+        detail = inp.pop(0)
+        url = f'http://localhost:8000/api/{sub_link}/{detail}/'
+
+    if meth != 'get' and meth != 'delete':
+        print("Put or post")
+
+    meth = meth.lower()
+
+    print('Loading data ...')
+    try:
+        if meth == 'get':
+            # Calculating offset for page
+            if is_page > 0:
+                page = inp[inp.index('--page') + 1]
+                url = f"http://localhost:8000/api/{sub_link}/?limit=10&offset={0+10*(int(page)-1)}"
+
+            # Add filters in to url
+            if is_filter > 0:
+                keys = ['name', 'first_name', 'last_name', 'description']
+                f_values = inp[inp.index('--filters')+1 :]
+                print(f_values)
+                f_keys = [f_values.pop(f_values.index(x)) for x in f_values if x in keys]
+                print(f_keys)
+                print(f_values)
+                url = f'http://localhost:8000/api/{sub_link}?'
+                for i, key in enumerate(f_keys):
+                    url = url+f'{key}={f_values[i]}' 
+
+            print(f'get: {url}')
+            res = requests.get(url, headers={'Authorization' : token})
+
+        elif meth == 'post':
+            print(f'post: {url}')
+            # res = requests.post(url,data=data, headers={'Authorization' : token})
+        elif meth == 'put':
+            print(f'put: {url}')
+            # res = requests.put(url,data=data, headers={'Authorization' : token})
+        elif meth == 'delete':
+            a = input(f"Are you sure to delete {sub_link[0:-1]} {detail}? [Y/n] >")
+            if a.lower() == 'y':
+                print(f'delete: {url}')
+                # res = requests.delete(url, headers={'Authorization' : token})
+            else:
+                print(f"{sub_link[0:-1]} {detail} was not deleted.")
+        else:
+            print('Method not allowed')
+            print("Use 'help' to see usage")
+            return
+
+    except:
+        print("Something was wrong!")
+        print("Use 'help' to see usage")
+        return
+
+    if res.status_code == 200:
+        print('Success!!')
+        data = res.json()
+        if meth == 'get':
+            data = data['results']
+            for x in data:
+                for key in x.keys():
+                    print(f"< {key} : {x[key]}")
+                print('-'*25)
+        
+        print('')
+    else:
+        print(f'[ERROR] Status Code: {res.status_code}')
 
 def menu(token):
     if NEXT_PAGE:
@@ -124,8 +227,10 @@ def main():
     print("Hello")
     if auth_token:
         print('Logged in succesfully!!')
+        print('Type "help" for usage')
     while True:
-        menu(auth_token)
+        # menu(auth_token)
+        experimental_menu(auth_token)
 
 
 if __name__ == "__main__":
