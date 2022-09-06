@@ -11,6 +11,7 @@ FIRST PARAM: users, products, localizations, confirmations, categories
     -for users (first_name, last_name)
     -for localizations (name, details)
     -for other (name)
+--data <key>=<value> ... for post and put method
 EXAMPLE:
     get products --filter name Szlifierka
 
@@ -18,6 +19,7 @@ OTHER COMMANDS:
     q - quit
     cls - clear screan
 """
+
 
 def experimental_menu(token):
     # <method(get, post, put, delete)> <users, products, localizations, confirmations> [id for details] | --page <value> | --filter <key(first_name, last_name for users) (name, details for localizations) (name for others)> <value> 
@@ -34,28 +36,43 @@ def experimental_menu(token):
         print('')
         print(HELP)
         return
+    elif not inp.lower().startswith(('get', 'post', 'put', 'delete')):
+        print(f'[ERROR] Syntax error')
+        print("Use 'help' to see usage")
+        return
     
     is_page = inp.find('--page')        # Check page flag exist
     is_filter = inp.find('--filters')   # Check filters flag exist
+    is_data = inp.find('--data')        # Check data flag is set
     inp = inp.split(' ')
     meth = inp.pop(0)
     sub_link = inp.pop(0)
 
     url = f'http://localhost:8000/api/{sub_link}/'
 
-    # Set id for detail view
-    if is_filter < 0 and is_page < 0 and len(inp):
-        detail = inp.pop(0)
-        url = f'http://localhost:8000/api/{sub_link}/{detail}/'
-
-    if meth != 'get' and meth != 'delete':
-        print("Put or post")
+    if meth == 'post' or meth == 'put':
+        if is_data < 0:
+            print("[EROR] --data was not found")
+            print("Use 'help' to see usage")
+            return
+        
+        data = inp[inp.index('--data')+1 : ]
+        temp_data = []
+        for d in data:
+            temp_data.append(d.split('='))
+        
+        data = temp_data
 
     meth = meth.lower()
 
     print('Loading data ...')
     try:
         if meth == 'get':
+            # Set id for detail and delete view
+            if is_filter < 0 and is_page < 0 and len(inp):
+                detail = inp.pop(0)
+                url = f'http://localhost:8000/api/{sub_link}/{detail}/'
+
             # Calculating offset for page
             if is_page > 0:
                 page = inp[inp.index('--page') + 1]
@@ -78,15 +95,15 @@ def experimental_menu(token):
 
         elif meth == 'post':
             print(f'post: {url}')
-            # res = requests.post(url,data=data, headers={'Authorization' : token})
+            res = requests.post(url,data=data, headers={'Authorization' : token})
         elif meth == 'put':
             print(f'put: {url}')
-            # res = requests.put(url,data=data, headers={'Authorization' : token})
+            res = requests.put(url,data=data, headers={'Authorization' : token})
         elif meth == 'delete':
-            a = input(f"Are you sure to delete {sub_link[0:-1]} {detail}? [Y/n] >")
+            a = input(f"Are you sure to delete {sub_link[0:-1]} {detail}? [Y/n] > ")
             if a.lower() == 'y':
                 print(f'delete: {url}')
-                # res = requests.delete(url, headers={'Authorization' : token})
+                res = requests.delete(url, headers={'Authorization' : token})
             else:
                 print(f"{sub_link[0:-1]} {detail} was not deleted.")
         else:
@@ -99,52 +116,60 @@ def experimental_menu(token):
         print("Use 'help' to see usage")
         return
 
-    if res.status_code == 200:
+    if res.status_code >= 200 and res.status_code < 300:
         print('Success!!')
         data = res.json()
         if meth == 'get':
-            data = data['results']
-            for x in data:
-                for key in x.keys():
-                    print(f"< {key} : {x[key]}")
+            if 'results' in data:
+                data = data['results']
+                for x in data:
+                    for key in x.keys():
+                        print(f"< {key} : {x[key]}")
+                    print('-'*25)
+            else:
+                for key in data.keys():
+                    print(f'< {key} : {data[key]}')
                 print('-'*25)
         
         print('')
     else:
         print(f'[ERROR] Status Code: {res.status_code}')
+        res_data = res.json()
+        for k in res_data.keys():
+            print(f'{k}: {res_data[k]}')
 
-def menu(token):
-    if NEXT_PAGE:
-        print('[N]Next page')
-    if PREV_PAGE:
-        print('[R]Previous page')
+# def menu(token):
+#     if NEXT_PAGE:
+#         print('[N]Next page')
+#     if PREV_PAGE:
+#         print('[R]Previous page')
 
-    if URL.split('/')[-2].isdecimal():
-        print('[S]Set changes \n[D]Delete')
+#     if URL.split('/')[-2].isdecimal():
+#         print('[S]Set changes \n[D]Delete')
         
-    odp = input("[U]User List \n[P]Product List \n[Q]Quit \n: ")
+#     odp = input("[U]User List \n[P]Product List \n[Q]Quit \n: ")
 
-    os.system('cls')
-    print("Loading...")
+#     os.system('cls')
+#     print("Loading...")
 
-    if odp.isdecimal():
-        getDetails(token, URL + odp)
+#     if odp.isdecimal():
+#         getDetails(token, URL + odp)
         
-    odp = odp.lower()
+#     odp = odp.lower()
 
-    if odp == 'n':
-        getList(token, NEXT_PAGE)
-    elif odp == 'r':
-        getList(token, PREV_PAGE)
-    elif odp == 'd':
-        deleteRecord(token, URL)
-    elif odp == 'u':
-        getList(token, 'http://localhost:8000/api/users/')
-    elif odp == 'p':
-        getList(token, 'http://localhost:8000/api/products/')
-    elif odp == 'q':
-        print('See you later!')
-        exit()
+#     if odp == 'n':
+#         getList(token, NEXT_PAGE)
+#     elif odp == 'r':
+#         getList(token, PREV_PAGE)
+#     elif odp == 'd':
+#         deleteRecord(token, URL)
+#     elif odp == 'u':
+#         getList(token, 'http://localhost:8000/api/users/')
+#     elif odp == 'p':
+#         getList(token, 'http://localhost:8000/api/products/')
+#     elif odp == 'q':
+#         print('See you later!')
+#         exit()
 
 def login():
     while True:
@@ -161,66 +186,66 @@ def login():
         else:
             print("Loggin failed \nBad email or password")
 
-def getList(token, url):
-    req = requests.get(url, headers={'Authorization': token})
+# def getList(token, url):
+#     req = requests.get(url, headers={'Authorization': token})
 
-    os.system('cls')
+#     os.system('cls')
 
-    if req.status_code == 200:
-        res = req.json()
-        global NEXT_PAGE
-        global PREV_PAGE
-        global URL
-        NEXT_PAGE = res['next']
-        PREV_PAGE = res['previous']
-        URL = url
-        data = res['results']
+#     if req.status_code == 200:
+#         res = req.json()
+#         global NEXT_PAGE
+#         global PREV_PAGE
+#         global URL
+#         NEXT_PAGE = res['next']
+#         PREV_PAGE = res['previous']
+#         URL = url
+#         data = res['results']
 
-        for pos in data:
-            id = pos['url'].split('/')[-2]
-            if 'name' in pos.keys():
-                print(f"[{id}]{pos['name']} \n-{pos['description']}")
-            else:
-                print(f"[{id}]{pos['first_name']} {pos['last_name']} \n-{pos['phone_number']}\n-{pos['email']}")
-            print('-'*25+'\n')
-    else:
-        print(f"[ERROR] Status code: {req.status_code}")
+#         for pos in data:
+#             id = pos['url'].split('/')[-2]
+#             if 'name' in pos.keys():
+#                 print(f"[{id}]{pos['name']} \n-{pos['description']}")
+#             else:
+#                 print(f"[{id}]{pos['first_name']} {pos['last_name']} \n-{pos['phone_number']}\n-{pos['email']}")
+#             print('-'*25+'\n')
+#     else:
+#         print(f"[ERROR] Status code: {req.status_code}")
 
-def getDetails(token, url):
-    req = requests.get(url, headers={"Authorization" : token})
+# def getDetails(token, url):
+#     req = requests.get(url, headers={"Authorization" : token})
 
-    os.system('cls')
+#     os.system('cls')
 
-    if req.status_code == 200:
-        res = req.json()
-        global NEXT_PAGE
-        global PREV_PAGE
-        global URL
-        NEXT_PAGE = None
-        PREV_PAGE = None
-        URL = url
+#     if req.status_code == 200:
+#         res = req.json()
+#         global NEXT_PAGE
+#         global PREV_PAGE
+#         global URL
+#         NEXT_PAGE = None
+#         PREV_PAGE = None
+#         URL = url
 
-        for key in res.keys():
-            print(f'{key} : {res[key]}')
+#         for key in res.keys():
+#             print(f'{key} : {res[key]}')
 
-def deleteRecord(token, url):
-    odp = input('Are you sure to delete this? [Y/n]')
-    if odp == 'y':
-        print('Deleting ...')
-        res = requests.delete(url, headers={"Authorization": token})
+# def deleteRecord(token, url):
+#     odp = input('Are you sure to delete this? [Y/n]')
+#     if odp == 'y':
+#         print('Deleting ...')
+#         res = requests.delete(url, headers={"Authorization": token})
 
-        if res.status_code == 200:
-            print('Deleted succesfully!!!')
-            global URL
-            URL = None
-        else:
-            print(f'[ERROR] {res.status_code}')
-            sleep(1000)
-            getDetails(token, URL)
-    else:
-        print('Item was not deleted')
-        sleep(1000)
-        getDetails(token, URL)
+#         if res.status_code == 200:
+#             print('Deleted succesfully!!!')
+#             global URL
+#             URL = None
+#         else:
+#             print(f'[ERROR] {res.status_code}')
+#             sleep(1000)
+#             getDetails(token, URL)
+#     else:
+#         print('Item was not deleted')
+#         sleep(1000)
+#         getDetails(token, URL)
 
 def main():
     auth_token = "Token " +login()
